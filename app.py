@@ -10,11 +10,13 @@ st.set_page_config(
 )
 
 # --- KONFIGURASI NAMA FILE VIDEO ---
-# Pastikan nama file ini SAMA PERSIS dengan file di folder Anda
 FILE_VIDEO_PC = "PT. Mahakam Lembu Mulawarman.mp4"
-FILE_VIDEO_HP = "mobile_bg.mp4" # Jika tidak ada, nanti otomatis pakai video PC
+FILE_VIDEO_HP = "mobile_bg.mp4" 
 
-# --- FUNGSI VIDEO BACKGROUND ---
+# --- FUNGSI VIDEO BACKGROUND (DENGAN CACHE) ---
+# @st.cache_data membuat data video disimpan di memori (RAM) server.
+# Jadi tidak perlu baca file ulang terus-menerus -> Loading Jauh Lebih Cepat.
+@st.cache_data(show_spinner=False)
 def get_base64_of_bin_file(bin_file):
     try:
         with open(bin_file, 'rb') as f:
@@ -29,16 +31,20 @@ bin_pc = None
 if os.path.exists(FILE_VIDEO_PC):
     bin_pc = get_base64_of_bin_file(FILE_VIDEO_PC)
 else:
-    st.error(f"❌ ERROR: File '{FILE_VIDEO_PC}' tidak ditemukan! Pastikan file ada di folder yang sama dengan app.py")
+    st.error(f"❌ ERROR: File '{FILE_VIDEO_PC}' tidak ditemukan!")
 
 # Cek Video HP
 bin_hp = None
 if os.path.exists(FILE_VIDEO_HP):
+    # Cek ukuran file HP, jika > 10MB beri peringatan karena bakal lemot
+    file_size_mb = os.path.getsize(FILE_VIDEO_HP) / (1024 * 1024)
+    if file_size_mb > 10:
+        st.warning(f"⚠️ Ukuran video HP '{FILE_VIDEO_HP}' terlalu besar ({file_size_mb:.1f} MB). Ini akan membuat loading lambat. Kompres ke bawah 5MB.")
+    
     bin_hp = get_base64_of_bin_file(FILE_VIDEO_HP)
 else:
-    # Jika video HP tidak ada, kita pakai video PC sebagai cadangan agar tidak blank
+    # Fallback ke video PC jika video HP tidak ada
     if bin_pc:
-        # st.warning(f"⚠️ Video HP '{FILE_VIDEO_HP}' tidak ditemukan. Menggunakan video PC untuk tampilan HP.")
         bin_hp = bin_pc
 
 # --- INJEKSI CSS & HTML ---
@@ -53,10 +59,10 @@ if bin_pc and bin_hp:
             width: 100vw;
             height: 100vh;
             z-index: -99;
-            object-fit: fill; /* Melar agar full layar */
+            object-fit: fill; 
         }}
         
-        /* CSS UNTUK OVERLAY */
+        /* CSS OVERLAY */
         .video-overlay {{
             position: fixed;
             left: 0;
@@ -67,28 +73,26 @@ if bin_pc and bin_hp:
             z-index: -98;
         }}
 
-        /* SEMBUNYIKAN ELEMEN BAWAAN STREAMLIT */
+        /* SEMBUNYIKAN ELEMEN BAWAAN */
         .stApp {{ background: none; }}
         header {{visibility: hidden;}}
         footer {{visibility: hidden;}}
 
-        /* --- MEDIA QUERY (LOGIKA GANTI SOURCE VIDEO) --- */
+        /* --- MEDIA QUERY OPTIMIZED --- */
         
-        /* Tampilan Desktop: Tampilkan video PC */
-        @media (min-width: 768px) {{
-            #bgVideo {{
-                content: url("data:video/mp4;base64,{bin_pc}");
-            }}
+        /* Optimasi GPU untuk Mobile agar tidak patah-patah */
+        video {{
+            will-change: transform;
+            transform: translate3d(0, 0, 0);
         }}
-        
+
         #videoDesktop {{ display: block; }}
         #videoMobile {{ display: none; }}
 
-        @media (max-width: 767px) {{
+        @media (max-width: 768px) {{
             #videoDesktop {{ display: none; }}
             #videoMobile {{ display: block; }}
         }}
-
     </style>
 
     <video autoplay muted loop playsinline id="videoDesktop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: fill; z-index: -99;">
