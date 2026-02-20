@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import base64
 
 # --- 1. KONFIGURASI HALAMAN ---
 st.set_page_config(
@@ -8,73 +9,88 @@ st.set_page_config(
     layout="centered"
 )
 
+# --- KONFIGURASI NAMA FILE VIDEO LOKAL ---
+# Pastikan kedua file ini ada di folder yang sama dengan app.py
+FILE_VIDEO_PC = "PT. Mahakam Lembu Mulawarman.mp4"
+FILE_VIDEO_HP = "mobile_bg.mp4" 
 
-# Masukkan link raw video PC :
-URL_VIDEO_PC = "https://github.com/Zxyor/PORTAL-LEMBU/raw/refs/heads/main/PT.%20Mahakam%20Lembu%20Mulawarman.mp4"
+# --- FUNGSI VIDEO BACKGROUND (DENGAN CACHE AGAR LEBIH CEPAT) ---
+@st.cache_data(show_spinner=False)
+def load_video_base64(file_path):
+    if os.path.exists(file_path):
+        with open(file_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    return None
 
-# Masukkan link raw video HP :
-URL_VIDEO_HP = "https://github.com/Zxyor/PORTAL-LEMBU/raw/refs/heads/main/mobile_bg.mp4"
+# --- BACA FILE VIDEO ---
+base64_pc = load_video_base64(FILE_VIDEO_PC)
+base64_hp = load_video_base64(FILE_VIDEO_HP)
+
+# Jika video PC tidak ada, tampilkan error
+if not base64_pc:
+    st.error(f"❌ ERROR: File '{FILE_VIDEO_PC}' tidak ditemukan di folder!")
+
+# Jika video HP tidak ada, otomatis gunakan video PC sebagai cadangan
+if not base64_hp and base64_pc:
+    base64_hp = base64_pc
+
+# --- INJEKSI CSS & HTML (MEMUNCULKAN VIDEO) ---
+if base64_pc:
+    video_html = f"""
+    <style>
+        /* Pengaturan untuk semua video background */
+        .bg-video {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -99;
+            object-fit: fill; /* Memaksa melar agar pas layar dan tidak terpotong */
+            will-change: transform; /* Akselerasi GPU agar tidak patah-patah di HP */
+        }}
+        
+        /* Lapisan hitam transparan agar teks terbaca */
+        .video-overlay {{
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.6); /* Gelap 60% */
+            z-index: -98;
+        }}
+
+        /* Sembunyikan elemen default Streamlit */
+        .stApp {{ background: transparent; }}
+        header {{ visibility: hidden; }}
+        footer {{ visibility: hidden; }}
+
+        /* Tampilan Desktop (PC) */
+        #videoDesktop {{ display: block; }}
+        #videoMobile {{ display: none; }}
+
+        /* Tampilan Handphone (HP) */
+        @media (max-width: 768px) {{
+            #videoDesktop {{ display: none; }}
+            #videoMobile {{ display: block; }}
+        }}
+    </style>
+
+    <video id="videoDesktop" class="bg-video" autoplay loop muted playsinline>
+        <source src="data:video/mp4;base64,{base64_pc}" type="video/mp4">
+    </video>
+
+    <video id="videoMobile" class="bg-video" autoplay loop muted playsinline>
+        <source src="data:video/mp4;base64,{base64_hp}" type="video/mp4">
+    </video>
+
+    <div class="video-overlay"></div>
+    """
+    st.markdown(video_html, unsafe_allow_html=True)
 
 
-# --- 2. INJEKSI CSS & HTML (MENGGUNAKAN URL STREAMING - JAUH LEBIH CEPAT) ---
-video_html = f"""
-<style>
-    /* CSS BACKGROUND FALLBACK (Jika video belum terload, tampilkan warna gelap elegan) */
-    .stApp {{
-        background: linear-gradient(-45deg, #000000, #0f172a, #1e1b4b, #000000);
-    }}
-    header {{visibility: hidden;}}
-    footer {{visibility: hidden;}}
-
-    /* PENGATURAN VIDEO KESELURUHAN */
-    video {{
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        z-index: -99;
-        object-fit: fill; 
-        will-change: transform; /* Akselerasi Hardware (GPU) untuk HP agar tidak patah-patah */
-    }}
-    
-    /* CSS OVERLAY GELAP AGAR TEKS TERBACA */
-    .video-overlay {{
-        position: fixed;
-        left: 0;
-        top: 0;
-        width: 100vw;
-        height: 100vh;
-        background: rgba(0, 0, 0, 0.5); /* Gelap 50% */
-        z-index: -98;
-    }}
-
-    /* --- MEDIA QUERY: PENGATURAN TAMPILAN HP & PC --- */
-    #videoDesktop {{ display: block; }}
-    #videoMobile {{ display: none; }}
-
-    /* Jika layar HP (Lebar maksimal 768px), Sembunyikan PC, Tampilkan HP */
-    @media (max-width: 768px) {{
-        #videoDesktop {{ display: none; }}
-        #videoMobile {{ display: block; }}
-    }}
-</style>
-
-<video autoplay muted loop playsinline id="videoDesktop">
-    <source src="{URL_VIDEO_PC}" type="video/mp4">
-</video>
-
-<video autoplay muted loop playsinline id="videoMobile">
-    <source src="{URL_VIDEO_HP}" type="video/mp4">
-</video>
-
-<div class="video-overlay"></div>
-"""
-# Tampilkan ke Streamlit
-st.markdown(video_html, unsafe_allow_html=True)
-
-
-# --- 3. CSS KUSTOM (KOTAK KACA & TOMBOL - TIDAK DIUBAH) ---
+# --- 2. CSS KUSTOM (KOTAK KACA & TOMBOL) ---
 st.markdown("""
 <style>
     /* --- KOTAK KACA --- */
@@ -173,7 +189,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 4. TAMPILAN UTAMA (UI) ---
+# --- 3. TAMPILAN UTAMA (UI) ---
 
 # --- LOGO & JUDUL ---
 col1, col2, col3 = st.columns([1, 2, 1])
