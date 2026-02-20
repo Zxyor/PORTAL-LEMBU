@@ -1,6 +1,5 @@
 import streamlit as st
 import os
-import base64
 
 # --- 1. KONFIGURASI HALAMAN ---
 st.set_page_config(
@@ -9,106 +8,73 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- KONFIGURASI NAMA FILE VIDEO ---
-FILE_VIDEO_PC = "PT. Mahakam Lembu Mulawarman.mp4"
-FILE_VIDEO_HP = "mobile_bg.mp4" 
 
-# --- FUNGSI VIDEO BACKGROUND (DENGAN CACHE) ---
-# @st.cache_data membuat data video disimpan di memori (RAM) server.
-# Jadi tidak perlu baca file ulang terus-menerus -> Loading Jauh Lebih Cepat.
-@st.cache_data(show_spinner=False)
-def get_base64_of_bin_file(bin_file):
-    try:
-        with open(bin_file, 'rb') as f:
-            data = f.read()
-        return base64.b64encode(data).decode()
-    except Exception as e:
-        return None
+# Masukkan link raw video PC :
+URL_VIDEO_PC = "https://github.com/Zxyor/PORTAL-LEMBU/raw/refs/heads/main/PT.%20Mahakam%20Lembu%20Mulawarman.mp4"
 
-# --- LOGIKA PENGECEKAN FILE ---
-# Cek Video PC
-bin_pc = None
-if os.path.exists(FILE_VIDEO_PC):
-    bin_pc = get_base64_of_bin_file(FILE_VIDEO_PC)
-else:
-    st.error(f"❌ ERROR: File '{FILE_VIDEO_PC}' tidak ditemukan!")
+# Masukkan link raw video HP :
+URL_VIDEO_HP = "https://github.com/Zxyor/PORTAL-LEMBU/raw/refs/heads/main/mobile_bg.mp4"
 
-# Cek Video HP
-bin_hp = None
-if os.path.exists(FILE_VIDEO_HP):
-    # Cek ukuran file HP, jika > 10MB beri peringatan karena bakal lemot
-    file_size_mb = os.path.getsize(FILE_VIDEO_HP) / (1024 * 1024)
-    if file_size_mb > 10:
-        st.warning(f"⚠️ Ukuran video HP '{FILE_VIDEO_HP}' terlalu besar ({file_size_mb:.1f} MB). Ini akan membuat loading lambat. Kompres ke bawah 5MB.")
+
+# --- 2. INJEKSI CSS & HTML (MENGGUNAKAN URL STREAMING - JAUH LEBIH CEPAT) ---
+video_html = f"""
+<style>
+    /* CSS BACKGROUND FALLBACK (Jika video belum terload, tampilkan warna gelap elegan) */
+    .stApp {{
+        background: linear-gradient(-45deg, #000000, #0f172a, #1e1b4b, #000000);
+    }}
+    header {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
+
+    /* PENGATURAN VIDEO KESELURUHAN */
+    video {{
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -99;
+        object-fit: fill; 
+        will-change: transform; /* Akselerasi Hardware (GPU) untuk HP agar tidak patah-patah */
+    }}
     
-    bin_hp = get_base64_of_bin_file(FILE_VIDEO_HP)
-else:
-    # Fallback ke video PC jika video HP tidak ada
-    if bin_pc:
-        bin_hp = bin_pc
+    /* CSS OVERLAY GELAP AGAR TEKS TERBACA */
+    .video-overlay {{
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.5); /* Gelap 50% */
+        z-index: -98;
+    }}
 
-# --- INJEKSI CSS & HTML ---
-if bin_pc and bin_hp:
-    video_html = f"""
-    <style>
-        /* CSS DEFAULT (UNTUK PC) */
-        #bgVideo {{
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: -99;
-            object-fit: fill; 
-        }}
-        
-        /* CSS OVERLAY */
-        .video-overlay {{
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.5); /* Gelap 50% */
-            z-index: -98;
-        }}
+    /* --- MEDIA QUERY: PENGATURAN TAMPILAN HP & PC --- */
+    #videoDesktop {{ display: block; }}
+    #videoMobile {{ display: none; }}
 
-        /* SEMBUNYIKAN ELEMEN BAWAAN */
-        .stApp {{ background: none; }}
-        header {{visibility: hidden;}}
-        footer {{visibility: hidden;}}
+    /* Jika layar HP (Lebar maksimal 768px), Sembunyikan PC, Tampilkan HP */
+    @media (max-width: 768px) {{
+        #videoDesktop {{ display: none; }}
+        #videoMobile {{ display: block; }}
+    }}
+</style>
 
-        /* --- MEDIA QUERY OPTIMIZED --- */
-        
-        /* Optimasi GPU untuk Mobile agar tidak patah-patah */
-        video {{
-            will-change: transform;
-            transform: translate3d(0, 0, 0);
-        }}
+<video autoplay muted loop playsinline id="videoDesktop">
+    <source src="{URL_VIDEO_PC}" type="video/mp4">
+</video>
 
-        #videoDesktop {{ display: block; }}
-        #videoMobile {{ display: none; }}
+<video autoplay muted loop playsinline id="videoMobile">
+    <source src="{URL_VIDEO_HP}" type="video/mp4">
+</video>
 
-        @media (max-width: 768px) {{
-            #videoDesktop {{ display: none; }}
-            #videoMobile {{ display: block; }}
-        }}
-    </style>
-
-    <video autoplay muted loop playsinline id="videoDesktop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: fill; z-index: -99;">
-        <source src="data:video/mp4;base64,{bin_pc}" type="video/mp4">
-    </video>
-
-    <video autoplay muted loop playsinline id="videoMobile" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: fill; z-index: -99;">
-        <source src="data:video/mp4;base64,{bin_hp}" type="video/mp4">
-    </video>
-
-    <div class="video-overlay"></div>
-    """
-    st.markdown(video_html, unsafe_allow_html=True)
+<div class="video-overlay"></div>
+"""
+# Tampilkan ke Streamlit
+st.markdown(video_html, unsafe_allow_html=True)
 
 
-# --- 2. CSS KUSTOM (GLASS BOX & TOMBOL) ---
+# --- 3. CSS KUSTOM (KOTAK KACA & TOMBOL - TIDAK DIUBAH) ---
 st.markdown("""
 <style>
     /* --- KOTAK KACA --- */
@@ -207,7 +173,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. TAMPILAN UTAMA (UI) ---
+# --- 4. TAMPILAN UTAMA (UI) ---
 
 # --- LOGO & JUDUL ---
 col1, col2, col3 = st.columns([1, 2, 1])
