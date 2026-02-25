@@ -14,7 +14,7 @@ st.set_page_config(
 FILE_VIDEO_PC = "PT. Mahakam Lembu Mulawarman.mp4"
 FILE_VIDEO_HP = "mobile_bg.mp4" 
 
-# --- FUNGSI VIDEO BACKGROUND (DENGAN CACHE AGAR LEBIH CEPAT) ---
+# --- FUNGSI VIDEO BACKGROUND (DENGAN CACHE) ---
 @st.cache_data(show_spinner=False)
 def load_video_base64(file_path):
     if os.path.exists(file_path):
@@ -26,39 +26,55 @@ def load_video_base64(file_path):
 base64_pc = load_video_base64(FILE_VIDEO_PC)
 base64_hp = load_video_base64(FILE_VIDEO_HP)
 
-# Jika video PC tidak ada, tampilkan error
 if not base64_pc:
     st.error(f"❌ ERROR: File '{FILE_VIDEO_PC}' tidak ditemukan di folder!")
 
-# Jika video HP tidak ada, otomatis gunakan video PC sebagai cadangan
 if not base64_hp and base64_pc:
     base64_hp = base64_pc
 
-# --- INJEKSI CSS & HTML (MEMUNCULKAN VIDEO) ---
+# --- INJEKSI CSS & HTML (BACKGROUND ANIMASI + VIDEO) ---
 if base64_pc:
     video_html = f"""
     <style>
-        /* Pengaturan untuk semua video background */
+        /* 1. BACKGROUND ANIMASI (MUNCUL PERTAMA SAAT LOADING) */
+        .animated-bg {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -100; /* Lapisan paling dasar */
+            background: linear-gradient(-45deg, #000000, #1a0b2e, #0f204b, #020a1a);
+            background-size: 400% 400%;
+            animation: bgFlow 10s ease infinite;
+        }}
+        @keyframes bgFlow {{
+            0%   {{ background-position: 0% 50%; }}
+            50%  {{ background-position: 100% 50%; }}
+            100% {{ background-position: 0% 50%; }}
+        }}
+
+        /* 2. PENGATURAN VIDEO (MUNCUL SETELAH LOADING SELESAI) */
         .bg-video {{
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
-            z-index: -99;
-            object-fit: fill; /* Memaksa melar agar pas layar dan tidak terpotong */
-            will-change: transform; /* Akselerasi GPU agar tidak patah-patah di HP */
+            z-index: -99; /* Di atas animasi background, menutupi animasi jika sudah siap */
+            object-fit: fill; 
+            will-change: transform; 
         }}
         
-        /* Lapisan hitam transparan agar teks terbaca */
+        /* 3. LAPISAN HITAM TRANSPARAN OVERLAY */
         .video-overlay {{
             position: fixed;
             left: 0;
             top: 0;
             width: 100vw;
             height: 100vh;
-            background: rgba(0, 0, 0, 0.6); /* Gelap 60% */
-            z-index: -98;
+            background: rgba(0, 0, 0, 0.6); 
+            z-index: -98; /* Di atas video, di bawah konten web */
         }}
 
         /* Sembunyikan elemen default Streamlit */
@@ -76,6 +92,8 @@ if base64_pc:
             #videoMobile {{ display: block; }}
         }}
     </style>
+
+    <div class="animated-bg"></div>
 
     <video id="videoDesktop" class="bg-video" autoplay loop muted playsinline>
         <source src="data:video/mp4;base64,{base64_pc}" type="video/mp4">
