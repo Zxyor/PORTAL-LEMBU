@@ -1,6 +1,5 @@
 import streamlit as st
 import os
-import base64
 
 # --- 1. KONFIGURASI HALAMAN ---
 st.set_page_config(
@@ -9,103 +8,82 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- KONFIGURASI NAMA FILE VIDEO LOKAL ---
-# Pastikan kedua file ini ada di folder yang sama dengan app.py
-FILE_VIDEO_PC = "PT. Mahakam Lembu Mulawarman.mp4"
-FILE_VIDEO_HP = "mobile_bg.mp4" 
+URL_VIDEO_PC = "https://github.com/Zxyor/PORTAL-LEMBU/raw/refs/heads/main/PT.%20Mahakam%20Lembu%20Mulawarman.mp4"
+URL_VIDEO_HP = "https://github.com/Zxyor/PORTAL-LEMBU/raw/refs/heads/main/mobile_bg.mp4"
 
-# --- FUNGSI VIDEO BACKGROUND (DENGAN CACHE) ---
-@st.cache_data(show_spinner=False)
-def load_video_base64(file_path):
-    if os.path.exists(file_path):
-        with open(file_path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    return None
+# =========================================================================
 
-# --- BACA FILE VIDEO ---
-base64_pc = load_video_base64(FILE_VIDEO_PC)
-base64_hp = load_video_base64(FILE_VIDEO_HP)
+# --- INJEKSI CSS & HTML (STREAMING LANGSUNG - TANPA PYTHON BASE64) ---
+video_html = f"""
+<style>
+    /* 1. BACKGROUND ANIMASI (STANDBY SAAT VIDEO BUFFERING) */
+    .animated-bg {{
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -100;
+        background: linear-gradient(-45deg, #000000, #1a0b2e, #0f204b, #020a1a);
+        background-size: 400% 400%;
+        animation: bgFlow 10s ease infinite;
+    }}
+    @keyframes bgFlow {{
+        0%   {{ background-position: 0% 50%; }}
+        50%  {{ background-position: 100% 50%; }}
+        100% {{ background-position: 0% 50%; }}
+    }}
 
-if not base64_pc:
-    st.error(f"❌ ERROR: File '{FILE_VIDEO_PC}' tidak ditemukan di folder!")
+    /* 2. PENGATURAN VIDEO (AKAN MENIMPA ANIMASI JIKA SUDAH JALAN) */
+    .bg-video {{
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -99; 
+        object-fit: fill; 
+        will-change: transform; 
+    }}
+    
+    /* 3. LAPISAN HITAM TRANSPARAN OVERLAY */
+    .video-overlay {{
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.6); 
+        z-index: -98;
+    }}
 
-if not base64_hp and base64_pc:
-    base64_hp = base64_pc
+    .stApp {{ background: transparent; }}
+    header {{ visibility: hidden; }}
+    footer {{ visibility: hidden; }}
 
-# --- INJEKSI CSS & HTML (BACKGROUND ANIMASI + VIDEO) ---
-if base64_pc:
-    video_html = f"""
-    <style>
-        /* 1. BACKGROUND ANIMASI (MUNCUL PERTAMA SAAT LOADING) */
-        .animated-bg {{
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: -100; /* Lapisan paling dasar */
-            background: linear-gradient(-45deg, #000000, #1a0b2e, #0f204b, #020a1a);
-            background-size: 400% 400%;
-            animation: bgFlow 10s ease infinite;
-        }}
-        @keyframes bgFlow {{
-            0%   {{ background-position: 0% 50%; }}
-            50%  {{ background-position: 100% 50%; }}
-            100% {{ background-position: 0% 50%; }}
-        }}
+    /* MEDIA QUERY TAMPILAN */
+    #videoDesktop {{ display: block; }}
+    #videoMobile {{ display: none; }}
 
-        /* 2. PENGATURAN VIDEO (MUNCUL SETELAH LOADING SELESAI) */
-        .bg-video {{
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: -99; /* Di atas animasi background, menutupi animasi jika sudah siap */
-            object-fit: fill; 
-            will-change: transform; 
-        }}
-        
-        /* 3. LAPISAN HITAM TRANSPARAN OVERLAY */
-        .video-overlay {{
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.6); 
-            z-index: -98; /* Di atas video, di bawah konten web */
-        }}
+    @media (max-width: 768px) {{
+        #videoDesktop {{ display: none; }}
+        #videoMobile {{ display: block; }}
+    }}
+</style>
 
-        /* Sembunyikan elemen default Streamlit */
-        .stApp {{ background: transparent; }}
-        header {{ visibility: hidden; }}
-        footer {{ visibility: hidden; }}
+<div class="animated-bg"></div>
 
-        /* Tampilan Desktop (PC) */
-        #videoDesktop {{ display: block; }}
-        #videoMobile {{ display: none; }}
+<video id="videoDesktop" class="bg-video" autoplay loop muted playsinline>
+    <source src="{URL_VIDEO_PC}" type="video/mp4">
+</video>
 
-        /* Tampilan Handphone (HP) */
-        @media (max-width: 768px) {{
-            #videoDesktop {{ display: none; }}
-            #videoMobile {{ display: block; }}
-        }}
-    </style>
+<video id="videoMobile" class="bg-video" autoplay loop muted playsinline>
+    <source src="{URL_VIDEO_HP}" type="video/mp4">
+</video>
 
-    <div class="animated-bg"></div>
-
-    <video id="videoDesktop" class="bg-video" autoplay loop muted playsinline>
-        <source src="data:video/mp4;base64,{base64_pc}" type="video/mp4">
-    </video>
-
-    <video id="videoMobile" class="bg-video" autoplay loop muted playsinline>
-        <source src="data:video/mp4;base64,{base64_hp}" type="video/mp4">
-    </video>
-
-    <div class="video-overlay"></div>
-    """
-    st.markdown(video_html, unsafe_allow_html=True)
+<div class="video-overlay"></div>
+"""
+st.markdown(video_html, unsafe_allow_html=True)
 
 
 # --- 2. CSS KUSTOM (KOTAK KACA & TOMBOL) ---
@@ -209,7 +187,6 @@ st.markdown("""
 
 # --- 3. TAMPILAN UTAMA (UI) ---
 
-# --- LOGO & JUDUL ---
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     if os.path.exists("lembu.png"):
@@ -218,18 +195,15 @@ with col2:
 st.title("Web Portal LEMBU")
 st.markdown("Selamat datang. Silakan pilih Aplikasi Apa Yang Ingin Anda Akses.")
 
-# --- KOTAK KACA (CONTAINER) ---
 with st.container(border=True):
-    st.markdown("---") # Garis pembatas
+    st.markdown("---") 
     
-    # --- BAGIAN 1: WEB ---
     st.subheader("🌐 Aplikasi Laporan BBM")
     st.markdown('<span class="caption-text">Klik tombol di bawah untuk membuka aplikasi.</span>', unsafe_allow_html=True)
     
     target_url = "https://bbm-lembu.streamlit.app/" 
     st.link_button("🚀 KUNJUNGI APLIKASI", target_url, use_container_width=True)
 
-    # --- BAGIAN 2: PDF ---
     st.subheader("📂 Buku Panduan")
     st.markdown('<span class="caption-text">Unduh panduan penggunaan lengkap (PDF).</span>', unsafe_allow_html=True)
 
@@ -251,7 +225,6 @@ with st.container(border=True):
 
     st.markdown("---") 
 
-# Footer
 st.markdown(
     """
     <div style='text-align: center; color: #fff; margin-top: 30px; font-size: 0.8rem; font-family: monospace; opacity: 0.7;'>
