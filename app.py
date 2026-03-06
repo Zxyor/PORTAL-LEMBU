@@ -224,11 +224,39 @@ with st.container(border=True):
         st.warning("⚠️ File PDF belum tersedia di folder manualbook.")
 
     st.markdown("---") 
+    st.markdown("---") 
+    
+    st.subheader("🌐 Aplikasi Retase dan Kubikasi")
+    st.markdown('<span class="caption-text">Klik tombol di bawah untuk membuka aplikasi.</span>', unsafe_allow_html=True)
+    
+    target_url = "https://retaseku-lembu.streamlit.app/" 
+    st.link_button("🚀 KUNJUNGI APLIKASI", target_url, use_container_width=True)
+
+    st.subheader("📂 Buku Panduan")
+    st.markdown('<span class="caption-text">Unduh panduan penggunaan lengkap (PDF).</span>', unsafe_allow_html=True)
+
+    pdf_path = "manualbook/BUKU PANDUAN PENGGUNA APLIKASI RETASE & KUBIKASI.pdf"
+
+    if os.path.exists(pdf_path):
+        with open(pdf_path, "rb") as pdf_file:
+            pdf_byte = pdf_file.read()
+            
+        st.download_button(
+            label="DOWNLOAD PANDUAN (PDF) 📥",
+            data=pdf_byte,
+            file_name="BUKU PANDUAN PENGGUNA APLIKASI RETASE & KUBIKASI.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+    else:
+        st.warning("⚠️ File PDF belum tersedia di folder manualbook.")
+
+    st.markdown("---") 
 
 st.markdown(
     """
     <div style='text-align: center; color: #fff; margin-top: 30px; font-size: 0.8rem; font-family: monospace; opacity: 0.7;'>
-        © 2026 Web Portal LEMBU | All Rights Reserved
+        © 2026 Web Portal LEMBU | PT. Mahakam Lembu Mulawarman
     </div>
     """, 
     unsafe_allow_html=True
